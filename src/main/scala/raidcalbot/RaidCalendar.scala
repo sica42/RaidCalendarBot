@@ -1,0 +1,105 @@
+package raidcalbot
+
+import java.util.concurrent.{Executors, TimeUnit}
+import raidcalbot.common.{CommonConnectionCallback, Global, ReconnectDelay, RaidCalBotConfig, RaidCalBotDataManager}
+import raidcalbot.discord.Discord
+import raidcalbot.game.GameConnector
+import raidcalbot.realm.{RealmConnectionCallback, RealmConnector}
+import com.typesafe.scalalogging.StrictLogging
+import io.netty.channel.nio.NioEventLoopGroup
+
+import scala.io.Source
+
+object RaidCalendar extends StrictLogging {
+  System.setProperty("io.netty.leakDetection.level", "DISABLED")
+  System.setProperty("io.netty.allocator.type", "unpooled")
+
+  private val RELEASE = "v1.0.0"
+
+  def main(args: Array[String]): Unit = {
+    logger.info(s"Running RaidCalendar - $RELEASE")
+    val confFile = if (args.nonEmpty) {
+      args(0)
+    } else {
+      logger.info("No configuration file supplied. Trying with default raidcalbot.conf.")
+      "raidcalbot.conf"
+    }
+    Global.config = RaidCalBotConfig(confFile)
+    Global.data = RaidCalBotDataManager("raidcalbot.json")
+/*
+    try {
+      checkForNewVersion
+    } catch {
+      case e: Exception => logger.error("Failed to check for a new version!", e)
+    }
+*/
+    val gameConnectionController: CommonConnectionCallback = new CommonConnectionCallback {
+
+      private val reconnectExecutor = Executors.newSingleThreadScheduledExecutor
+      private val reconnectDelay = new ReconnectDelay
+
+      override def connect: Unit = {
+        Global.group = new NioEventLoopGroup
+        logger.info("Connecting to WoW...")
+
+        val realmConnector = new RealmConnector(new RealmConnectionCallback {
+          
+          override def success(host: String, port: Int, realmName: String, realmId: Int, sessionKey: Array[Byte]): Unit = {
+            logger.info("Connecting to game server...")
+            gameConnect(host, port, realmName, realmId, sessionKey)
+          }
+
+          override def disconnected: Unit = doReconnect
+
+          override def error: Unit = sys.exit(1)
+        })
+
+        realmConnector.connect
+      }
+
+      private def gameConnect(host: String, port: Int, realmName: String, realmId: Int, sessionKey: Array[Byte]): Unit = {
+        new GameConnector(host, port, realmName, realmId, sessionKey, this).connect
+      }
+
+      override def connected: Unit = reconnectDelay.reset
+
+      override def disconnected: Unit = doReconnect
+
+      def doReconnect: Unit = {
+        Global.group.shutdownGracefully()
+        Global.discord.changeRealmStatus("Connecting...")
+        val delay = reconnectDelay.getNext
+        logger.info(s"Disconnected from server! Reconnecting in $delay seconds...")
+
+        reconnectExecutor.schedule(new Runnable {
+          override def run(): Unit = connect
+        }, delay, TimeUnit.SECONDS)
+      }
+    }
+    
+    logger.info("Connecting to Discord...")
+    Global.discord = new Discord(new CommonConnectionCallback {
+      override def connected: Unit = gameConnectionController.connect
+
+      override def error: Unit = sys.exit(1)
+    })
+  }
+
+  private def checkForNewVersion = {
+    // This is JSON, but I really just didn't want to import a full blown JSON library for one string.
+    val data = Source.fromURL("https://api.github.com/repos/Sica42/RaidCalendarBot/releases/latest").mkString
+    val regex = "\"tag_name\":\"(.+?)\",".r
+    val repoTagName = regex
+      .findFirstMatchIn(data)
+      .map(_.group(1))
+      .getOrElse("NOT FOUND")
+
+    if (repoTagName != RELEASE) {
+      logger.error( "~~~ !!!               YOUR RaidCalendar VERSION IS OUT OF DATE                !!! ~~~")
+      logger.error(s"~~~ !!!                     Current Version:  $RELEASE                      !!! ~~~")
+      logger.error(s"~~~ !!!                     Repo    Version:  $repoTagName                      !!! ~~~")
+      logger.error( "~~~ !!! RUN git pull OR GO TO https://github.com/Sica42/RaidCalendarBot TO UPDATE !!! ~~~")
+      logger.error( "~~~ !!!                YOUR WoWChat VERSION IS OUT OF DATE                !!! ~~~")
+    }
+  }
+}
