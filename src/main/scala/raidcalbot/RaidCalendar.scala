@@ -14,7 +14,7 @@ object RaidCalendar extends StrictLogging {
   System.setProperty("io.netty.leakDetection.level", "DISABLED")
   System.setProperty("io.netty.allocator.type", "unpooled")
 
-  private val RELEASE = "v1.0.0"
+  private val RELEASE = "v1.0.1"
 
   def main(args: Array[String]): Unit = {
     logger.info(s"Running RaidCalendar - $RELEASE")
@@ -26,13 +26,13 @@ object RaidCalendar extends StrictLogging {
     }
     Global.config = RaidCalBotConfig(confFile)
     Global.data = RaidCalBotDataManager("raidcalbot.json")
-/*
+
     try {
       checkForNewVersion
     } catch {
       case e: Exception => logger.error("Failed to check for a new version!", e)
     }
-*/
+
     val gameConnectionController: CommonConnectionCallback = new CommonConnectionCallback {
 
       private val reconnectExecutor = Executors.newSingleThreadScheduledExecutor
@@ -86,7 +86,6 @@ object RaidCalendar extends StrictLogging {
   }
 
   private def checkForNewVersion = {
-    // This is JSON, but I really just didn't want to import a full blown JSON library for one string.
     val data = Source.fromURL("https://api.github.com/repos/Sica42/RaidCalendarBot/releases/latest").mkString
     val regex = "\"tag_name\":\"(.+?)\",".r
     val repoTagName = regex
@@ -95,11 +94,11 @@ object RaidCalendar extends StrictLogging {
       .getOrElse("NOT FOUND")
 
     if (repoTagName != RELEASE) {
-      logger.error( "~~~ !!!               YOUR RaidCalendar VERSION IS OUT OF DATE                !!! ~~~")
-      logger.error(s"~~~ !!!                     Current Version:  $RELEASE                      !!! ~~~")
-      logger.error(s"~~~ !!!                     Repo    Version:  $repoTagName                      !!! ~~~")
+      logger.error( "~~~ !!!                YOUR RaidCalendar VERSION IS OUT OF DATE                   !!! ~~~")
+      logger.error(s"~~~ !!!                       Current Version:  $RELEASE                            !!! ~~~")
+      logger.error(s"~~~ !!!                       Repo    Version:  $repoTagName                            !!! ~~~")
       logger.error( "~~~ !!! RUN git pull OR GO TO https://github.com/Sica42/RaidCalendarBot TO UPDATE !!! ~~~")
-      logger.error( "~~~ !!!                YOUR WoWChat VERSION IS OUT OF DATE                !!! ~~~")
+      logger.error( "~~~ !!!                 YOUR WoWChat VERSION IS OUT OF DATE                       !!! ~~~")
     }
   }
 }
