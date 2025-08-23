@@ -255,7 +255,11 @@ object BotCommandHandler extends GamePackets with StrictLogging {
   private def handleSignup(player: String, jsonNode: JsonNode): Unit = {
     JsonParsingUtils.parseJsonNode[SignupData](jsonNode) match {
       case Right(signupData) =>
-        sendDataToWow(signUp(signupData, player).toString)
+        val result: SignupResult = checkAccess(player, signupData.channelId)
+          .fold(identity, _ => signUp(signupData, player))
+        
+        sendDataToWow(result.toString)
+
       case Left(errorMessage) =>
         sendDataToWow(CommandResponse("SIGNUP_RESULT", false, player, Some("ERRCODE 101: Signup failed")))
         logger.debug("ERR 101: ", errorMessage)
@@ -268,7 +272,10 @@ object BotCommandHandler extends GamePackets with StrictLogging {
   private def handleSignupEdit(player: String, jsonNode: JsonNode): Unit = {
     JsonParsingUtils.parseJsonNode[EditSignupData](jsonNode) match {                
       case Right(signupData) =>
-        sendDataToWow(editSignUp(signupData, player).toString)
+        val result: SignupResult = checkAccess(player, signupData.channelId)
+          .fold(identity, _ => editSignUp(signupData, player))
+
+        sendDataToWow(result.toString)
 
       case Left(errorMessage) =>
         sendDataToWow(CommandResponse("SIGNUP_RESULT", false, player, Some("ERRCODE 201: Signup edit failed")))
@@ -280,14 +287,6 @@ object BotCommandHandler extends GamePackets with StrictLogging {
    * New Signup
    */
   protected def signUp(data: SignupData, player: String): SignupResult = {
-    if (!Global.data.userData.getChannelValue(player, data.channelId)) {
-      return SignupResult(
-        success = false,
-        status = "Access denied",
-        player = player
-      )
-    }
-
     try {
       val apiKey = Global.config.raid.api_key
       val jsonData = mapper.valueToTree[ObjectNode](data)
@@ -306,7 +305,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
           val jsonNode = mapper.readTree(error)
           SignupResult(
             success = false,
-            status = jsonNode.get("error").asText(""),            
+            status = jsonNode.get("error").asText(""),
             player = player
           )
         },
@@ -324,12 +323,12 @@ object BotCommandHandler extends GamePackets with StrictLogging {
             status = jsonNode.path("status").asText(),
             player = player,
             eventId = Some(eventNode.path("id").asText()),
-            lastUpdated =  Some(eventNode.path("lastUpdated").asText()),
+            lastUpdated = Some(eventNode.path("lastUpdated").asText()),
             signUp = signupNode
           )
         }
       )
-    } catch  {
+    } catch {
       case e: Exception =>
         logger.error("Error signing up", e)
         SignupResult(
@@ -344,14 +343,6 @@ object BotCommandHandler extends GamePackets with StrictLogging {
    * Edit Signup
    */
   protected def editSignUp(data: EditSignupData, player: String): SignupResult = {
-    if (!Global.data.userData.getChannelValue(player, data.channelId)) {
-      return SignupResult(
-        success = false,
-        status = "Access denied",
-        player = player
-      )
-    }
-
     try {
       val apiKey = Global.config.raid.api_key
       val localMapper = mapper.copy()
@@ -587,6 +578,24 @@ object BotCommandHandler extends GamePackets with StrictLogging {
         s"""{success=$success, id=$id, player="$player"}"""
       }
     )
+  }
+
+  protected def checkAccess(player: String, channelId: String): Either[SignupResult, Unit] = {
+    val denied = SignupResult(
+      success = false,
+      status = "Access denied",
+      player = player
+    )
+
+    Global.data.userData.getChannelValue(player, channelId) match {
+      case Some(true)  => Right(())
+      case Some(false) => Left(denied)
+      case None =>
+        if (Global.discord.hasChannelAccess(player, channelId, false)) {
+          Global.data.userData.addChannelToPlayer(player, channelId)
+          Right(())
+        } else Left(denied)
+    }
   }
 
   protected def getJoke(name: Option[String]): Unit = {
@@ -881,6 +890,8 @@ object BotCommandHandler extends GamePackets with StrictLogging {
         logger.debug("new cookies")
         val cookieNames: Set[String] = newSetCookieHeaders.map { cookie => cookie.takeWhile(_ != '=') }.toSet
         val requiredCookies = Set("d.refresh_token", "d.expiry", "jwt", "d.access_token")
+        logger.debug( cookieNames.mkString(", ") )
+        logger.debug( newSetCookieHeaders.mkString(", ") )
 
         if (requiredCookies.diff(cookieNames).isEmpty) {
           logger.debug("save cookies")

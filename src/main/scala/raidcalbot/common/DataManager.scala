@@ -164,8 +164,8 @@ class UserDataManager(dataManager: RaidCalBotDataManager) {
     }
   }
   
-  def getChannelValue(playerName: String, channelId: String): Boolean = {
-    userData.get(playerName).flatMap(_.channelIds.get(channelId)).getOrElse(false)
+  def getChannelValue(playerName: String, channelId: String): Option[Boolean] = {
+    userData.get(playerName).flatMap(_.channelIds.get(channelId))
   }
   
   def updateChannelValue(playerName: String, channelId: String, value: Boolean): Boolean = {
