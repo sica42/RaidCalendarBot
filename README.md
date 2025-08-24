@@ -36,7 +36,7 @@ Even though this bot does not do anything malicious, some servers may not like a
      * Press F12 to open developer tools.
      * Chrome: Go to `Application` tab and in the left menu find and open `Storage->Cookies->https://raidres.fly.dev`.
      * Firefox: Go `Storage` tab and in the left menu find and open `Cookies->https://raidres.fly.dev`. 
-     * You should see a cookie names `jwt`. Double click the value field and copy the value.
+     * You should see a cookie named `jwt`. Double click the value field and copy the value.
 
 3. Configure WoW Chat by opening `raidcalbot.conf` in a text editor.
    * You can also create your own file, using the supplied `raidcalbot.conf` as a template.
@@ -49,7 +49,6 @@ Even though this bot does not do anything malicious, some servers may not like a
      * **cookies**: Paste the above copied value so that it reads cookies="jwt=your cookie value"
    * In section **wow**:
      * **platform**: Leave as **Mac** unless your target server has Warden (anticheat) disabled AND it is blocking/has disabled Mac logins. In this case put **Windows**.
-     * **locale**: Optionally specify a locale if you want to join locale-specific global channels. **enUS** is the default locale.
      * **version**: put either 1.12.1, 2.4.3, 3.3.5, 4.3.4, or 5.4.8 based on the server's expansion.
      * **build**: you can include a build=<build number> setting in the config, if you are using a custom build version on your server. Optionally you can also use **realm_build** and **game_build** options if the number used is different for each server. See https://github.com/fjaros/raidcalbot/issues/90
      * **realmlist**: this is server's realmlist, same as in your realmlist.wtf file.
@@ -67,9 +66,14 @@ Even though this bot does not do anything malicious, some servers may not like a
    * In browser enter: https://discordapp.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot
      * Replace **CLIENT_ID** with the value from Discord applications page.
 
-## Run
+## Run from source
 1. WoW Chat is written in Scala and compiles to a Java executable using [maven](https://maven.apache.org).
 2. It uses Java JDK 1.8 and Scala 2.12.12.
 3. Run `mvn clean package` which will produce a file in the target folder called `raidcalendar-1.0.0.zip`
 4. unzip `raidcalendar-1.0.0.zip`, edit the configuration file and run `java -jar raidcalendar.jar <config file>`
    * If no config file is supplied, the bot will try to use `raidcalendar.conf`
+
+## Run from JAR file
+1. Download the latest release from https://github.com/sica42/RaidCalendarBot/releases/latest
+2. It requires Java 1.8 to run
+2. Unzip `raidcalendar-1.0.0.zip`, edit the configuration file and run with `run.bat` or `run.sh`

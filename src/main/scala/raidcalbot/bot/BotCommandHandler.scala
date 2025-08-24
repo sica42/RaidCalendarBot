@@ -86,7 +86,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     }
   }
 
-  def whisper(name: Option[String], message: String): Unit = {
+  def whisper(name: String, message: String): Unit = {
     logger.info(s"Whisper from $name: $message");
     val commandPattern = "#([^#]+)#(.*)".r
 
@@ -101,19 +101,17 @@ object BotCommandHandler extends GamePackets with StrictLogging {
         command match {
           case "pc" =>
             val response = if (args.nonEmpty) priceCheck( args.mkString(" ") ) else "No item specified"
-            Global.game.foreach(_.sendMessageToWow(ChatEvents.CHAT_MSG_WHISPER, response, name))
+            Global.game.foreach(_.sendMessageToWow(ChatEvents.CHAT_MSG_WHISPER, response, Some(name)))
           case "pcg" =>
             val response = if (args.nonEmpty) priceCheck( args.mkString(" ") ) else "No item specified"
             Global.game.foreach(_.sendNotification(response))
           case "gjoke" =>
             getJoke(Some("GUILD"))
           case _ =>
-            Global.game.foreach(_.sendMessageToWow(ChatEvents.CHAT_MSG_WHISPER, "I have no idea what you want", name))
+            Global.game.foreach(_.sendMessageToWow(ChatEvents.CHAT_MSG_WHISPER, "I have no idea what you want", Some(name)))
         }
       case _ =>
-        if (name.exists(_.nonEmpty)) {
-          getJoke(name)
-        }
+        getJoke(Some(name))
     }
   }
 
@@ -672,7 +670,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     Currency(gold, silver, copper)
   }
 
-  protected def parseJsonAndCalculateAverage(jsonString: String): Currency = {
+  protected def parseJsonAndCalculateAverage(jsonString: String): Option[Currency] = {
     val rootNode: JsonNode = mapper.readTree(jsonString)
     
     val avgPrices = collection.mutable.ListBuffer[Long]()
@@ -689,9 +687,10 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     
     if (avgPrices.nonEmpty) {
       val averageCopper = (avgPrices.sum.toDouble / avgPrices.length).round.toInt
-      convertToCurrency(averageCopper)
+      val currency = convertToCurrency(averageCopper)
+      if (currency == Currency(0, 0, 0)) None else Some(currency)
     } else {
-      Currency(0, 0, 0)
+      None
     }
   }
 
@@ -700,18 +699,21 @@ object BotCommandHandler extends GamePackets with StrictLogging {
 
     itemPattern.findFirstMatchIn(input).map(_.group(1).toInt) match {
       case Some(itemId) =>
+        var source: Option[Source] = None
         try {
-          logger.debug(s"Feteching data for item $itemId")
-          val source = Source.fromURL(s"https://api.wowauctions.net/items/stats/7d/nordanaar/mergedAh/$itemId")
-          val jsonString = source.mkString
-          source.close()
-          val averagePrice = parseJsonAndCalculateAverage(jsonString)
-          logger.info(s"Price check for $input: $averagePrice")
-          s"Average price for $input last week was $averagePrice."
+          source = Some(Source.fromURL(s"https://api.wowauctions.net/items/stats/7d/nordanaar/mergedAh/$itemId"))
+          val jsonString = source.get.mkString
+
+          parseJsonAndCalculateAverage(jsonString) match {
+            case Some(averagePrice) => s"Average price for $input last week was $averagePrice."
+            case None => s"No price information found for $input"
+          }
         } catch {
           case e: Exception =>
             logger.debug(e.getMessage)
             ( "Something went wrong, I blame the pet" )
+        } finally {
+          source.foreach(_.close())
         }
       case None => "No valid item link found"
     }

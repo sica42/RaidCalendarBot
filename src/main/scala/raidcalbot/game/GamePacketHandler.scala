@@ -361,9 +361,8 @@ class GamePacketHandler(realmId: Int, realmName: String, sessionKey: Array[Byte]
         messages.foreach(message => {
           message.channel match {
             case Some("Addon") => BotCommandHandler(nameQueryMessage.name, message.message)
-            case _ => BotCommandHandler.whisper(Some(nameQueryMessage.name), message.message)
+            case _ => BotCommandHandler.whisper(nameQueryMessage.name, message.message)
           }
-          //Global.discord.sendMessageFromWow(Some(nameQueryMessage.name), message.message, message.tp, message.channel)
         })
         playerRoster += nameQueryMessage.guid -> Player(nameQueryMessage.name, nameQueryMessage.charClass)
     })
@@ -614,7 +613,7 @@ class GamePacketHandler(realmId: Int, realmName: String, sessionKey: Array[Byte]
         })(name => {
           chatMessage.channel match {
             case Some("Addon") => BotCommandHandler(name.name, chatMessage.message)
-            case _ => BotCommandHandler.whisper(Some(name.name), chatMessage.message)
+            case _ => BotCommandHandler.whisper(name.name, chatMessage.message)
           }
         })
       }
