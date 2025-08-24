@@ -1,2 +1,7 @@
 2025-08-22 - v1.0.0
 * First RaidCalendar Release
+2025-08-24 - v1.0.1
+* Enable version check
+* Adjust raidres cookie refresh
+* Add new response to priceCheck when no data is found
+* Refresh channel access on even signup if access data is missing
