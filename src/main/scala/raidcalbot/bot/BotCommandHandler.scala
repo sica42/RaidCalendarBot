@@ -822,7 +822,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
 
   object CookieManager extends StrictLogging {
     private val cookieFile = "cookies.txt"
-    private val expiryThresholdSeconds = 60 * 60 * 24 * 4 // 4 days
+    private val expiryThresholdSeconds = 60 * 60 * 24 * 6 // 6 days
 
     def getCookies(): String = {
       val savedHeaders = loadSetCookieHeaders()
@@ -889,23 +889,19 @@ object BotCommandHandler extends GamePackets with StrictLogging {
       val newSetCookieHeaders = authResponse.headers("Set-Cookie").toList
 
       if (newSetCookieHeaders.nonEmpty) {
-        logger.debug("new cookies")
         val cookieNames: Set[String] = newSetCookieHeaders.map { cookie => cookie.takeWhile(_ != '=') }.toSet
         val requiredCookies = Set("d.refresh_token", "d.expiry", "jwt", "d.access_token")
         logger.debug( cookieNames.mkString(", ") )
         logger.debug( newSetCookieHeaders.mkString(", ") )
 
         if (requiredCookies.diff(cookieNames).isEmpty) {
-          logger.debug("save cookies")
           saveSetCookieHeaders(newSetCookieHeaders)
         }
         cookieHeaderValue(newSetCookieHeaders)
       } else {      
         if (currentHeaders.nonEmpty) {
-          logger.debug("use saved cookies")
           cookieHeaderValue(currentHeaders)
         } else {
-          logger.debug("use default cookies")
           Global.config.raid.cookies
         }
       }
