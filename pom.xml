@@ -6,12 +6,12 @@
 
     <groupId>raidcalbot</groupId>
     <artifactId>raidcalbot</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
 
     <properties>
-        <java.version>1.8</java.version>
+        <java.version>21</java.version>
         <scala.version.major>2.12</scala.version.major>
-        <scala.version.minor>12</scala.version.minor>
+        <scala.version.minor>20</scala.version.minor>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
@@ -28,40 +28,39 @@
         <dependency>
             <groupId>com.softwaremill.sttp.client3</groupId>
             <artifactId>core_${scala.version.major}</artifactId>
-            <version>3.0.0</version>
+            <version>3.11.0</version>
         </dependency>
 
         <dependency>
             <groupId>com.softwaremill.sttp.client3</groupId>
             <artifactId>okhttp-backend_${scala.version.major}</artifactId>
-            <version>3.0.0</version>
+            <version>3.11.0</version>
         </dependency>
 
         <!-- JSON -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-scala_${scala.version.major}</artifactId>
-            <!--<version>2.15.2</version>-->
-            <version>2.11.4</version>
+            <version>2.18.0</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.11.4</version>
+            <version>2.18.0</version>
         </dependency>
 
         <dependency>
             <groupId>org.scala-lang.modules</groupId>
             <artifactId>scala-parser-combinators_2.12</artifactId>
-            <version>1.1.2</version>
+            <version>2.4.0</version>
         </dependency>
 
         <!-- Logging -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.2.10</version>
+            <version>1.5.18</version>
         </dependency>
 
         <dependency>
@@ -70,19 +69,38 @@
             <version>3.9.5</version>
         </dependency>
 
-        <!-- config -->
+        <!-- Config -->
         <dependency>
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
-            <version>1.4.2</version>
+            <version>1.4.3</version>
         </dependency>
 
         <dependency>
             <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>4.1.68.Final</version>
+            <artifactId>netty-common</artifactId>
+            <version>4.1.124.Final</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-buffer</artifactId>
+            <version>4.1.124.Final</version>
+        </dependency>
+
+         <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport</artifactId>
+            <version>4.1.124.Final</version>
+        </dependency>
+
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+            <version>4.1.124.Final</version>
+        </dependency>
+
+        <!-- Discord -->
         <dependency>
             <groupId>net.dv8tion</groupId>
             <artifactId>JDA</artifactId>
@@ -136,7 +154,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.1.1</version>
+                <version>3.5.3</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -151,25 +169,19 @@
                         <filter>
                             <artifact>*:*</artifact>
                             <excludes>
-                                <exclude>META-INF/*.SF</exclude>
-                                <exclude>META-INF/*.DSA</exclude>
-                                <exclude>META-INF/*.RSA</exclude>
                                 <exclude>logback.xml</exclude>
                                 <exclude>*.conf</exclude>
-                            </excludes>
-                        </filter>
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>META-INF/versions/9/module-info.class</exclude>
                                 <exclude>module-info.class</exclude>
+                                <exclude>META-INF/module-info.class</exclude>
+                                <exclude>META-INF/versions/9/module-info.class</exclude>
+                                <exclude>META-INF/versions/11/module-info.class</exclude>
+                                <exclude>META-INF/LICENSE</exclude>
+                                <exclude>META-INF/LICENSE.txt</exclude>
+                                <exclude>META-INF/NOTICE</exclude>
+                                <exclude>META-INF/MANIFEST.MF</exclude>
+                                <exclude>LICENSE</exclude>
+                                <exclude>NOTICE</exclude>
                             </excludes>
-                        </filter>
-                         <filter>
-                            <artifact>io.netty:*</artifact>
-                            <includes>
-                                <include>**</include>
-                            </includes>
                         </filter>
                     </filters>
                     <transformers>
@@ -179,13 +191,23 @@
                                 <Main-Class>raidcalbot.RaidCalendar</Main-Class>
                             </manifestEntries>
                         </transformer>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                            <resource>META-INF/io.netty.versions.properties</resource>
+                        </transformer>
                     </transformers>
+                    <artifactSet>
+                        <excludes>
+                            <exclude>META-INF/*.SF</exclude>
+                            <exclude>META-INF/*.DSA</exclude>
+                            <exclude>META-INF/*.RSA</exclude>
+                        </excludes>
+                    </artifactSet>
                 </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.6</version>
+                <version>3.7.1</version>
                 <configuration>
                     <finalName>${project.artifactId}-${project.version}</finalName>
                     <descriptors>

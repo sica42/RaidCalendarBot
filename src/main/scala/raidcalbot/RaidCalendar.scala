@@ -14,7 +14,7 @@ object RaidCalendar extends StrictLogging {
   System.setProperty("io.netty.leakDetection.level", "DISABLED")
   System.setProperty("io.netty.allocator.type", "unpooled")
 
-  private val RELEASE = "v1.0.1"
+  private val RELEASE = "v1.1.0"
 
   def main(args: Array[String]): Unit = {
     logger.info(s"Running RaidCalendar - $RELEASE")

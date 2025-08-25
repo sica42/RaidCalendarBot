@@ -5,3 +5,7 @@
 * Adjust raidres cookie refresh
 * Add new response to priceCheck when no data is found
 * Refresh channel access on even signup if access data is missing
+2025-08-25 - v1.1.0
+* Upgrade to Java 21
+* Upgrade several modules
+* Fix wrong threshold for renewing raidres cookies.

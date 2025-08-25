@@ -303,7 +303,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
           val jsonNode = mapper.readTree(error)
           SignupResult(
             success = false,
-            status = jsonNode.get("error").asText(""),
+            status = jsonNode.path("error").asText(""),
             player = player
           )
         },
@@ -361,9 +361,10 @@ object BotCommandHandler extends GamePackets with StrictLogging {
         error => {
           val jsonNode = mapper.readTree(error)
           logger.debug("signup edit json error")
+          logger.debug(s"Raw response body: ${response.body}")
           SignupResult(
             success = false,
-            status = jsonNode.get("error").asText(""),
+            status = jsonNode.path("error").asText(""),
             player = player
           )
         },
@@ -444,7 +445,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     response.body.fold(
       error_json => {
         val jsonNode = mapper.readTree(error_json)
-        val error = jsonNode.get("error").asText("")
+        val error = jsonNode.path("error").asText("")
 
         s"""{success=false, status="$error"}"""          
       },
@@ -482,7 +483,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
         val jsonNode = mapper.readTree(error_json)
         val errorNode = mapper.createObjectNode()
         errorNode.put("success", false)
-        errorNode.put("status", jsonNode.get("error").asText(""))
+        errorNode.put("status", jsonNode.path("error").asText(""))
 
         errorNode
       },
@@ -506,7 +507,9 @@ object BotCommandHandler extends GamePackets with StrictLogging {
           }
         }
 
-        addCustomSrPlus(jsonNode)
+        if (Global.config.raid.cookSrPlus) {
+          addCustomSrPlus(jsonNode)
+        }
         jsonNode
       }
     )
@@ -532,7 +535,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     response.body.fold(
       error_json => {
         val jsonNode = mapper.readTree(error_json)
-        val error = jsonNode.get("error").asText("")
+        val error = jsonNode.path("error").asText("")
         Left(s"ERRCODE 301: SR registration failed - $error")
         
       },
@@ -565,7 +568,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
       error_json => {
         logger.debug(s"failed: $error_json")
         val jsonNode = mapper.readTree(error_json)
-        val error = jsonNode.get("error").asText("")
+        val error = jsonNode.path("error").asText("")
         logger.debug("delete sr error")
         s"""{success=false, id=$id, player="$player", status="$error"}"""
       },
@@ -822,22 +825,18 @@ object BotCommandHandler extends GamePackets with StrictLogging {
 
   object CookieManager extends StrictLogging {
     private val cookieFile = "cookies.txt"
-    private val expiryThresholdSeconds = 60 * 60 * 24 * 6 // 6 days
+    private val expiryThresholdSeconds = 60 * 60 * 24 // 1 day
 
     def getCookies(): String = {
       val savedHeaders = loadSetCookieHeaders()
 
       if (savedHeaders.nonEmpty) {
-        logger.debug("We have cookies")
         if (needsRefresh(savedHeaders)) {
-          logger.debug("refresh cookies")
           refreshAndSaveCookies(savedHeaders)
-        } else {
-          logger.debug("return cookies")
+        } else {          
           cookieHeaderValue(savedHeaders)
         }
       } else {
-        logger.debug("No cookies")
         refreshAndSaveCookies(Seq.empty)
       }
     }

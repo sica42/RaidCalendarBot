@@ -1,6 +1,5 @@
 package raidcalbot.discord
 
-//import raidcalbot.commands.CommandHandler
 import raidcalbot.common._
 import com.typesafe.scalalogging.StrictLogging
 import com.vdurmont.emoji.EmojiParser
@@ -147,18 +146,12 @@ class Discord(discordConnectionCallback: CommonConnectionCallback) extends Liste
         isConnected = true
         lastStatus.foreach(game => changeStatus(game.getType, game.getName))
 
-
-
-        //if (Global.discordToWow.nonEmpty || Global.wowToDiscord.nonEmpty) {
         if (firstConnect) {
           discordConnectionCallback.connected
           firstConnect = false
         } else {
           discordConnectionCallback.reconnected
         }
-     //   } else {
-    //      logger.error("No discord channels configured!")
-     //   }
       case Status.DISCONNECTED =>
         isConnected = false
         discordConnectionCallback.disconnected
