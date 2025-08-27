@@ -301,9 +301,13 @@ object BotCommandHandler extends GamePackets with StrictLogging {
       response.body.fold(
         error => {
           val jsonNode = mapper.readTree(error)
+          val status = Option(jsonNode.path("error").asText(null)).filter(_.nonEmpty)
+            .orElse(Option(jsonNode.path("reason").asText(null)).filter(_.nonEmpty))
+            .getOrElse("Unknown error")
+
           SignupResult(
             success = false,
-            status = jsonNode.path("error").asText(""),
+            status = status,
             player = player
           )
         },
@@ -360,11 +364,13 @@ object BotCommandHandler extends GamePackets with StrictLogging {
       response.body.fold(
         error => {
           val jsonNode = mapper.readTree(error)
-          logger.debug("signup edit json error")
-          logger.debug(s"Raw response body: ${response.body}")
+          val status = Option(jsonNode.path("error").asText(null)).filter(_.nonEmpty)
+            .orElse(Option(jsonNode.path("reason").asText(null)).filter(_.nonEmpty))
+            .getOrElse("Unknown error")
+          
           SignupResult(
             success = false,
-            status = jsonNode.path("error").asText(""),
+            status = status,
             player = player
           )
         },
@@ -445,7 +451,9 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     response.body.fold(
       error_json => {
         val jsonNode = mapper.readTree(error_json)
-        val error = jsonNode.path("error").asText("")
+        val error = Option(jsonNode.path("error").asText(null)).filter(_.nonEmpty)
+            .orElse(Option(jsonNode.path("reason").asText(null)).filter(_.nonEmpty))
+            .getOrElse("Unknown error")
 
         s"""{success=false, status="$error"}"""          
       },
