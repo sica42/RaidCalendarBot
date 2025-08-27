@@ -78,27 +78,9 @@
 
         <dependency>
             <groupId>io.netty</groupId>
-            <artifactId>netty-common</artifactId>
-            <version>4.1.124.Final</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-buffer</artifactId>
-            <version>4.1.124.Final</version>
-        </dependency>
-
-         <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport</artifactId>
-            <version>4.1.124.Final</version>
-        </dependency>
-
-          <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-handler</artifactId>
-            <version>4.1.124.Final</version>
-        </dependency>
+            <artifactId>netty-all</artifactId>
+            <version>4.1.86.Final</version>
+        </dependency>        
 
         <!-- Discord -->
         <dependency>
@@ -171,14 +153,11 @@
                             <excludes>
                                 <exclude>logback.xml</exclude>
                                 <exclude>*.conf</exclude>
-                                <exclude>module-info.class</exclude>
-                                <exclude>META-INF/module-info.class</exclude>
-                                <exclude>META-INF/versions/9/module-info.class</exclude>
-                                <exclude>META-INF/versions/11/module-info.class</exclude>
-                                <exclude>META-INF/LICENSE</exclude>
-                                <exclude>META-INF/LICENSE.txt</exclude>
+                                <exclude>META-INF/versions/9/module-info.class</exclude>                                
+                                <exclude>META-INF/LICENSE*</exclude>
                                 <exclude>META-INF/NOTICE</exclude>
                                 <exclude>META-INF/MANIFEST.MF</exclude>
+                                <exclude>META-INF/maven/**</exclude>
                                 <exclude>LICENSE</exclude>
                                 <exclude>NOTICE</exclude>
                             </excludes>
