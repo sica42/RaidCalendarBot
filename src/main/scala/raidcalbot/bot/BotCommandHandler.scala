@@ -812,14 +812,32 @@ object BotCommandHandler extends GamePackets with StrictLogging {
   object ReminderScheduler {
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
 
+    private class ShuffleBag(messages: Seq[String]) {
+      private var bag: Seq[String] = Seq.empty
+      private var index: Int = 0
+
+      private def reshuffle(): Unit = {
+        bag = Random.shuffle(messages)
+        index = 0
+      }
+
+      def next(): String = {
+        if (bag.isEmpty || index >= bag.size) reshuffle()
+        val msg = bag(index)
+        index += 1
+        msg
+      }
+    }
+
     def scheduleReminder(reminder: ReminderCheck): Unit = {
       if (!reminder.enabled) return
+      val bag = new ShuffleBag(reminder.messages)
 
       scheduler.scheduleAtFixedRate(
         new Runnable {
           def run(): Unit = {
             if (reminder.messages.nonEmpty) {
-              val msg = reminder.messages(Random.nextInt(reminder.messages.size))
+              val msg = bag.next()
               Global.game.foreach(_.sendNotification(msg))
             }
           }
