@@ -69,11 +69,11 @@ Even though this bot does not do anything malicious, some servers may not like a
 ## Run from source
 1. WoW Chat is written in Scala and compiles to a Java executable using [maven](https://maven.apache.org).
 2. It uses Java JDK 21 and Scala 2.12.20.
-3. Run `mvn clean package` which will produce a file in the target folder called `raidcalendar-1.1.0.zip`
-4. unzip `raidcalendar-1.1.0.zip`, edit the configuration file and run `java -jar raidcalendar.jar <config file>`
+3. Run `mvn clean package` which will produce a file in the target folder called `raidcalendar-1.1.1.zip`
+4. unzip `raidcalendar-1.1.1.zip`, edit the configuration file and run `java -jar raidcalendar.jar <config file>`
    * If no config file is supplied, the bot will try to use `raidcalendar.conf`
 
 ## Run from JAR file
 1. Download the latest release from https://github.com/sica42/RaidCalendarBot/releases/latest
 2. It requires Java 21 to run
-2. Unzip `raidcalendar-1.1.0.zip`, edit the configuration file and run with `run.bat` or `run.sh`
+2. Unzip `raidcalendar-1.1.1.zip`, edit the configuration file and run with `run.bat` or `run.sh`

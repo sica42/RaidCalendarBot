@@ -9,3 +9,7 @@
 * Upgrade to Java 21
 * Upgrade several modules
 * Fix wrong threshold for renewing raidres cookies.
+2025.08.28 - v1.1.1
+* Revert back to io.netty 4.1.86.Final which seem to resolve some random errors
+* Add proper handling of rate limit errors from raid-helper.dev
+* Add more hydration/posture messages and implemented shuffel bag for better variety
