@@ -107,6 +107,13 @@ object BotCommandHandler extends GamePackets with StrictLogging {
             Global.game.foreach(_.sendNotification(response))
           case "gjoke" =>
             getJoke(Some("GUILD"))
+          case "gsay" =>
+            if (args.nonEmpty) {
+              val response = args.mkString(" ")
+              Global.game.foreach(_.sendNotification(response))
+            } else {
+              Global.game.foreach(_.sendMessageToWow(ChatEvents.CHAT_MSG_WHISPER, "You need to provide a message", Some(name)))
+            }
           case _ =>
             Global.game.foreach(_.sendMessageToWow(ChatEvents.CHAT_MSG_WHISPER, "I have no idea what you want", Some(name)))
         }
