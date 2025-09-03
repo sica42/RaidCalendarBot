@@ -28,7 +28,7 @@ import scala.util.Random
 import scala.reflect.ClassTag
 
 case class DiscordChannelCheckData( userId: String, channelId: String, renew: Boolean = false )
-case class SRAddData(raidId: Option[Long] = None, reference: String, characterName: String, characterClass: String, specialization: String, raidItemIds: List[Int])
+case class SRAddData(raidId: Option[Long] = None, reference: String, characterName: String, characterClass: String, specialization: String, comment: Option[String], raidItemIds: List[Int])
 case class SignupData(eventId: String, userId: String, className: String, specName: String, channelId: String, name: Option[String])
 case class EditSignupData(eventId: String, signupId: String, className: String, specName: String, channelId: String, name: Option[String])
 case class SignupResult(status: String, success: Boolean, player: String, eventId: Option[String] = None, lastUpdated: Option[String] = None, signUp: Option[JsonNode] = None) {
