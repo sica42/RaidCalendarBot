@@ -102,7 +102,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
           case "pc" =>
             val response = if (args.nonEmpty) priceCheck( args.mkString(" ") ) else "No item specified"
             Global.game.foreach(_.sendMessageToWow(ChatEvents.CHAT_MSG_WHISPER, response, Some(name)))
-          case "pcg" =>
+          case "gpc" =>
             val response = if (args.nonEmpty) priceCheck( args.mkString(" ") ) else "No item specified"
             Global.game.foreach(_.sendNotification(response))
           case "gjoke" =>
@@ -238,7 +238,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     Option(jsonNode.get("id")).filter(!_.isNull) match {
       case Some(idNode) =>
         val id = idNode.asText()
-        val outData = getEvent(id)
+        val outData = jsonToLuaTable(getEvent(id))
         sendDataToWow(s"EVENT::$outData")
       case None =>
         sendDataToWow(CommandResponse("EVENT", false, player, Some("Where was the raid again?")))
@@ -450,7 +450,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     }
   }
 
-  protected def getEvent(id: String): String = {
+  def getEvent(id: String): JsonNode = {
     val request = basicRequest
       .get(uri"https://raid-helper.dev/api/v2/events/$id")
     val response = request.send(backend)
@@ -462,25 +462,15 @@ object BotCommandHandler extends GamePackets with StrictLogging {
             .orElse(Option(jsonNode.path("reason").asText(null)).filter(_.nonEmpty))
             .getOrElse("Unknown error")
 
-        s"""{success=false, status="$error"}"""          
+        val errorNode = mapper.createObjectNode()
+        errorNode.put("success", false)
+        errorNode.put("status", error)
+        errorNode
       },
       json => {
         val jsonNode = mapper.readTree(json)
         removeKeys(jsonNode, Set("emoteId", "roleEmoteId", "classEmoteId", "specEmoteId", "advancedSettings" ))
-        try {
-          val raidId = jsonNode.get("id").asText()
-          val title = jsonNode.get("title").asText()
-          val start = jsonNode.get("startTime").asLong()
-          
-          if (Global.data.raidData.addRaid(raidId, title, start)) {            
-            Global.game.foreach(_.sendNotification(s"New raid $title on ${Instant.ofEpochSecond(start)}. Check |cffffffff|Hraidcal:event:$raidId|h[RaidCalendar]|h|r or Discord for details and sign up!"))
-          }
-        } catch {
-          case e: Exception =>
-            logger.error(s"Error parsing event: ${e.getMessage}")
-        }
-        
-        jsonToLuaTable(jsonNode)
+        jsonNode
       }
     )
   }

@@ -1,14 +1,18 @@
 package raidcalbot.discord
 
 import raidcalbot.common._
+import raidcalbot.game.GamePackets
+import raidcalbot.bot.BotCommandHandler.getEvent
+
 import com.typesafe.scalalogging.StrictLogging
 import com.vdurmont.emoji.EmojiParser
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.JDA.Status
 import net.dv8tion.jda.api.Permission
-import net.dv8tion.jda.api.entities.{Activity, MessageType}
+import net.dv8tion.jda.api.entities.{Activity, Message, MessageType, MessageEmbed, EmbedType}
 import net.dv8tion.jda.api.entities.Activity.ActivityType
 import net.dv8tion.jda.api.entities.channel.ChannelType
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.events.StatusChangeEvent
 import net.dv8tion.jda.api.events.session.ShutdownEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -18,14 +22,16 @@ import net.dv8tion.jda.api.requests.{CloseCode, GatewayIntent}
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 import net.dv8tion.jda.api.EmbedBuilder
-import net.dv8tion.jda.api.interactions.components.ActionRow;
+import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 
+import java.util.concurrent.{Executors, TimeUnit}
+import java.time.Instant
 import java.awt.Color
-import raidcalbot.game.GamePackets
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.util.matching.Regex
 
 class Discord(discordConnectionCallback: CommonConnectionCallback) extends ListenerAdapter
   with GamePackets with StrictLogging {
@@ -166,4 +172,97 @@ class Discord(discordConnectionCallback: CommonConnectionCallback) extends Liste
       case _ =>
     }
   }
+
+  override def onMessageReceived(event: MessageReceivedEvent): Unit = {
+    // ignore messages received from self
+    if (event.getAuthor.getIdLong == jda.getSelfUser.getIdLong) {
+      return
+    }
+
+    // ignore messages from non-text channels
+    if (event.getChannelType != ChannelType.TEXT) {
+      return
+    }
+
+    // ignore non-default messages
+    val messageType = event.getMessage.getType
+    if (messageType != MessageType.DEFAULT && messageType != MessageType.INLINE_REPLY) {
+      return
+    }
+
+    EmbedWatcher.inspectEmbeds(event.getMessage, event.getChannel)
+  }
+
+  object EmbedWatcher {
+    private val scheduler = Executors.newScheduledThreadPool(1)
+    private val eventIdRegex: Regex = """.*raid-helper\.dev/event/(\d+).*""".r
+
+    private def extractEventId(embed: MessageEmbed): Option[String] = {
+      embed.getFields.asScala.flatMap { field =>
+        Option(field.getValue) match {
+          case Some(eventIdRegex(id)) => Some(id)
+          case _ => None
+        }
+      }.headOption
+    }
+
+    def inspectEmbeds(message: Message, channel: MessageChannel, delaySeconds: Int = 2, maxRetries: Int = 3): Unit = {
+      def checkEmbeds(msg: Message): Unit = {
+        val richEmbeds = msg.getEmbeds.asScala.filter(_.getType == EmbedType.RICH)
+        if (richEmbeds.nonEmpty) {
+          richEmbeds.foreach { embed =>
+            extractEventId(embed).foreach { id =>
+              val event = getEvent(id)
+              val raidId = event.get("id").asText()
+              val title = event.get("title").asText()
+              val start = event.get("startTime").asLong()
+          
+              Global.game.foreach(_.sendNotification(s"New raid $title on ${Instant.ofEpochSecond(start)}. Check |cffffffff|Hraidcal:event:$raidId|h[RaidCalendar]|h|r or Discord for details and sign up!"))    
+              logger.info(s"Sending raid notification for $title ($raidId) to game from Discord.")
+            }
+          }
+        }
+      }
+
+      def scheduleRefetch(messageId: String, attempt: Int): Unit = {
+        if (attempt > maxRetries) return
+
+        scheduler.schedule(
+          new Runnable {
+            override def run(): Unit = {
+              channel.retrieveMessageById(messageId).queue { refreshed =>
+                val isLoading = refreshed.getEmbeds.asScala
+                  .filter(_.getType == EmbedType.RICH)
+                  .exists { e =>
+                    e.getFields.asScala.exists(_.getName == "Loading...")
+                  }
+
+                if (isLoading) {
+                  scheduleRefetch(messageId, attempt + 1)
+                } else {
+                  checkEmbeds(refreshed)
+                }
+              }
+            }
+          },
+          delaySeconds.toLong,
+          TimeUnit.SECONDS
+        )
+      }
+
+      val richEmbeds = message.getEmbeds.asScala.filter(_.getType == EmbedType.RICH)
+      if (richEmbeds.nonEmpty) {
+        val isLoading = richEmbeds.exists { e =>
+          e.getFields.asScala.exists(_.getName == "Loading...")
+        }
+
+        if (isLoading) {
+          scheduleRefetch(message.getId, 1)
+        } else {
+          checkEmbeds(message)
+        }
+      }
+    }
+  }
+
 }
