@@ -34,8 +34,8 @@ Even though this bot does not do anything malicious, some servers may not like a
    * After creating the account, go to raidres.fly.dev and sign in.
    * You then need to find and copy the `jwt` cookie for use in the `raidcalbot.conf`.
      * Press F12 to open developer tools.
-     * Chrome: Go to `Application` tab and in the left menu, then find and open `Storage->Cookies->https://raidres.fly.dev`.
-     * Firefox: Go `Storage` tab and in the left menu, then find and open `Cookies->https://raidres.fly.dev`. 
+     * Chrome: Go to `Application` tab and in the left menu find and open `Storage->Cookies->https://raidres.fly.dev`.
+     * Firefox: Go `Storage` tab and in the left menu find and open `Cookies->https://raidres.fly.dev`. 
      * You should see a cookie named `jwt`. Double click the value field and copy the value.
 
 3. Configure WoW Chat by opening `raidcalbot.conf` in a text editor.
@@ -46,7 +46,9 @@ Even though this bot does not do anything malicious, some servers may not like a
      * **api_key**: use /apikey on your Discord server to show the API key (you need admin access).
      * **server_id**: Discord server ID.
    * In section **raidres**:
+     * **account**: The account username or UserID
      * **cookies**: Paste the above copied value so that it reads cookies="jwt=your cookie value"
+     * **admins**: List of WoW characters that will have admin rights on raidres
    * In section **wow**:
      * **platform**: Leave as **Mac** unless your target server has Warden (anticheat) disabled AND it is blocking/has disabled Mac logins. In this case put **Windows**.
      * **version**: put either 1.12.1, 2.4.3, 3.3.5, 4.3.4, or 5.4.8 based on the server's expansion.
@@ -69,11 +71,11 @@ Even though this bot does not do anything malicious, some servers may not like a
 ## Run from source
 1. WoW Chat is written in Scala and compiles to a Java executable using [maven](https://maven.apache.org).
 2. It uses Java JDK 21 and Scala 2.12.20.
-3. Run `mvn clean package` which will produce a file in the target folder called `raidcalendar-1.1.1.zip`
-4. unzip `raidcalendar-1.1.1.zip`, edit the configuration file and run `java -jar raidcalendar.jar <config file>`
+3. Run `mvn clean package` which will produce a file in the target folder called `raidcalendar-1.2.zip`
+4. unzip `raidcalendar-1.2.zip`, edit the configuration file and run `java -jar raidcalendar.jar <config file>`
    * If no config file is supplied, the bot will try to use `raidcalendar.conf`
 
 ## Run from JAR file
 1. Download the latest release from https://github.com/sica42/RaidCalendarBot/releases/latest
 2. It requires Java 21 to run
-2. Unzip `raidcalendar-1.1.1.zip`, edit the configuration file and run with `run.bat` or `run.sh`
+2. Unzip `raidcalendar-1.2.zip`, edit the configuration file and run with `run.bat` or `run.sh`

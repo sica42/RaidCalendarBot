@@ -13,7 +13,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeOf}
 
 case class RaidCalBotConfig(discord: DiscordConfig, raid: Raid, wow: Wow)
 case class DiscordConfig(token: String)
-case class Raid(api_key: String, server_id: String, cookies: String, announceNewRaids: Boolean, cookSrPlus: Boolean)
+case class Raid(api_key: String, server_id: String, account: String, cookies: String, admins: Seq[String], announceNewRaids: Boolean, cookSrPlus: Boolean)
 case class Wow(locale: String, platform: Platform.Value, realmBuild: Option[Int], gameBuild: Option[Int], realmlist: RealmListConfig, account: Array[Byte], password: String, character: String, enableServerMotd: Boolean, hydrationCheck: ReminderCheck, postureCheck: ReminderCheck)
 case class RealmListConfig(name: String, host: String, port: Int)
 case class ReminderCheck(enabled: Boolean, intervalMinutes: Int, offsetMinutes: Int, messages: Seq[String])
@@ -50,7 +50,9 @@ object RaidCalBotConfig extends GamePackets {
       Raid(
         raidHelperConf.getString("api_key"),
         raidHelperConf.getString("server_id"),        
+        raidResConf.getString("account"),
         raidResConf.getString("cookies"),
+        raidResConf.getStringList("admins").asScala.toSeq,
         getOpt[Boolean](raidHelperConf, "announce_new_raids").getOrElse(true),
         getOpt[Boolean](raidResConf, "cook_sr_plus").getOrElse(false)
       ),

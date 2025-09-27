@@ -13,3 +13,6 @@
 * Revert back to io.netty 4.1.86.Final which seem to resolve some random errors
 * Add proper handling of rate limit errors from raid-helper.dev
 * Add more hydration/posture messages and implemented shuffel bag for better variety
+2025.09.28 - v1.2
+* Add support for SR admin commands.
+* Add support for Discord bot to recognize raidres commands in new events. See new config options

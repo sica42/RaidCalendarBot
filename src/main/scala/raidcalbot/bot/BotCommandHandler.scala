@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 
 import sttp.client3._
 import sttp.client3.okhttp.OkHttpSyncBackend
+import sttp.model.StatusCode
 import sttp.model.headers.CookieWithMeta
 
 import java.time.Instant
@@ -29,8 +30,10 @@ import scala.reflect.ClassTag
 
 case class DiscordChannelCheckData( userId: String, channelId: String, renew: Boolean = false )
 case class SRAddData(raidId: Option[Long] = None, reference: String, characterName: String, characterClass: String, specialization: String, comment: Option[String], raidItemIds: List[Int])
+case class SRDeleteData(reference: String, id: String)
 case class SignupData(eventId: String, userId: String, className: String, specName: String, channelId: String, name: Option[String])
 case class EditSignupData(eventId: String, signupId: String, className: String, specName: String, channelId: String, name: Option[String])
+case class EditEventData(description: Option[String] = None)
 case class SignupResult(status: String, success: Boolean, player: String, eventId: Option[String] = None, lastUpdated: Option[String] = None, signUp: Option[JsonNode] = None) {
   override def toString: String = {
     val jsonNode = BotCommandHandler.mapper.valueToTree[JsonNode](this)
@@ -70,6 +73,7 @@ object BotCommandHandler extends GamePackets with StrictLogging {
               case "RSR" => handleGetSR(player, jsonNode)
               case "SRDELETE" => handleDeleteSR(player, jsonNode)
               case "SRADD" => handleAddSR(player, jsonNode)
+              case "SRLOCK" => handleLockSR(player, jsonNode)
               case "REVENT" => handleRequestEvent(player, jsonNode)
               case "REVENTS" => handleRequestEvents(player)
               case "SIGNUP" => handleSignup(player, jsonNode)
@@ -126,9 +130,11 @@ object BotCommandHandler extends GamePackets with StrictLogging {
    * Handle Bot Status
    */
   private def handleBotStatus(player: String): Unit = {
-    val discordBot = Global.discord.getBotName
-    val botName = Global.config.wow.character
-    sendDataToWow(CommandResponse("BSTATUS", true, player, None, Map("discordBot" -> discordBot, "botName" -> botName)))
+    sendDataToWow(CommandResponse("BSTATUS", true, player, None, Map(
+      "discordBot" -> Global.discord.getBotName,
+      "botName" -> Global.config.wow.character,
+      "srAdmins" -> Global.config.raid.admins
+    )))
   }
 
   /**
@@ -186,13 +192,30 @@ object BotCommandHandler extends GamePackets with StrictLogging {
    * Handle Delete SR
    */
   private def handleDeleteSR(player: String, jsonNode: JsonNode): Unit = {
-    Option(jsonNode.get("id")).filter(!_.isNull) match {
-      case Some(idNode) =>
-        val id = idNode.asText()
-        val outData = deleteSR(id, player)
-        sendDataToWow(s"SRDELETE_RESULT::$outData")
-      case None =>
-        sendDataToWow(CommandResponse("SRDELETE_RESULT", false, player, Some("Oh no, the pet pulled the SR")))
+    JsonParsingUtils.parseJsonNode[SRDeleteData](jsonNode) match {
+      case Right(srData) =>
+        val eventData = getSR(srData.reference)
+        val reservationsArray = eventData.get("reservations")
+
+        if (reservationsArray != null && reservationsArray.isArray) {
+          val matchingSRs = reservationsArray.asScala.filter { reservation =>
+            val characterName = reservation.get("character").get("name").asText()
+            val id = reservation.get("id").asText()
+          
+            (characterName == player || Global.config.raid.admins.contains(player)) && id == srData.id 
+          }.toList
+        
+          if (matchingSRs.nonEmpty) {
+            val outData = deleteSR(srData.id, player)
+            sendDataToWow(s"SRDELETE_RESULT::$outData")
+          } else {
+            sendDataToWow(CommandResponse("SRDELETE_RESULT", false, player, Some("ERRCODE 301: Access denied")))
+          }
+        } else {
+          sendDataToWow(CommandResponse("SRDELETE_RESULT", false, player, Some("ERRCODE 302: Unable to find SR data")))
+        }
+      case Left(errorMessage) =>
+        sendDataToWow(CommandResponse("SRDELETE_RESULT", false, player, Some("ERRCODE 303: Missing or invalid input data. Try upgrading RaidCalendar addon.")))
         logger.debug("SRDELETE error: missing or null 'id' field")
     }
   }
@@ -228,6 +251,31 @@ object BotCommandHandler extends GamePackets with StrictLogging {
       case Left(errorMessage) =>
         sendDataToWow(CommandResponse("SRADD_RESULT", false, player, Some("ERRCODE 301: SR registration failed")))
         logger.debug(errorMessage)
+    }
+  }
+
+  /**
+   * Handle Lock SR
+   */
+  private def handleLockSR(player: String, jsonNode: JsonNode): Unit = {
+    Option(jsonNode.get("id")).filter(!_.isNull) match {
+      case Some(idNode) =>
+        if (!Global.config.raid.admins.contains(player)) {
+          sendDataToWow(CommandResponse("SRLOCK_RESULT", false, player, Some("Access denied")))
+          return
+        }
+
+        val id = idNode.asText()
+        val locked = jsonNode.get("locked").asBoolean()
+        val success = lockSR(id, locked)
+
+        sendDataToWow(CommandResponse("SRLOCK_RESULT", success, player, None, Map(
+          "locked" -> locked,
+          "srId" -> id
+        )))
+      case None =>        
+        sendDataToWow(CommandResponse("SRLOCK_RESULT", false, player, Some("Missing raid ID")))
+        logger.debug("SRLOCK error: missing or null 'id' field")
     }
   }
 
@@ -475,12 +523,44 @@ object BotCommandHandler extends GamePackets with StrictLogging {
     )
   }
 
+  def updateEvent(eventId: String, data: EditEventData): Boolean = {
+    try {
+      val apiKey = Global.config.raid.api_key  
+      val jsonString = mapper.writeValueAsString(data)
+      
+      val request = basicRequest
+        .patch(uri"https://raid-helper.dev/api/v2/events/$eventId")
+        .header("Authorization", apiKey)
+        .contentType("application/json")
+        .body(jsonString)
+
+      val response = request.send(backend)
+
+      response.body.fold(
+        errorJson => {
+          logger.debug("updateSR error: " + errorJson)
+          false
+        },
+        json => {
+          true
+        }
+      )
+    } catch  {
+      case e: Exception =>
+        logger.error("Error editing event", e)
+        false
+    }
+  }
+
   protected def getSR(id: String): JsonNode = {
+    val cookies = CookieManager.getCookies
     val request = basicRequest
       .get(uri"https://raidres.fly.dev/api/events/$id")
       .contentType("application/json")
       .headers(Map(
-        "User-Agent" -> "Bot/RaidCalendar"
+        "User-Agent" -> "Bot/RaidCalendar",
+        "Origin" -> "https://raidres.fly.dev",
+        "Cookie" -> cookies,
       ))
     val response = request.send(backend)
     response.body.fold(
@@ -494,10 +574,17 @@ object BotCommandHandler extends GamePackets with StrictLogging {
       },
       json => {
         val jsonNode = mapper.readTree(json)
+        val objNode = jsonNode.asInstanceOf[ObjectNode]
+        val admin = Global.config.raid.account
+        val isAdmin = jsonNode.path("extraAdministrators").elements().asScala.exists { node =>
+          node.path("name").asText() == admin || node.path("id").asText() == admin
+        }
+
+        objNode.put("adminAccess", isAdmin)
 
         removeKeys(jsonNode, Set("authorId", "eventHubToken", "stale", "lockAtStartTime", "startTime", "minimumAccountAge", 
           "forbiddenUsernames", "allowSrPlus", "previousRaidEventReference", "defaultSrPlusIncrease", "allowSrPlusInput", "extraAdministrators", "hasAuditData",
-          "updatedAt", "nameStyle", "isTemporary", "user"
+          "updatedAt", "nameStyle", "isTemporary", "user", "description"
         ))
 
         // Change srPlus data to only the value
@@ -516,6 +603,36 @@ object BotCommandHandler extends GamePackets with StrictLogging {
           addCustomSrPlus(jsonNode)
         }
         jsonNode
+      }
+    )
+  }
+
+  protected def lockSR(id: String, locked: Boolean): Boolean = {
+    val cookies = CookieManager.getCookies
+
+    val root = mapper.createObjectNode()
+    root.put("reference", id)
+    root.put("locked", locked)
+    val jsonString = mapper.writeValueAsString(root)
+
+    val request = basicRequest
+      .patch(uri"https://raidres.fly.dev/api/events/$id")
+      .contentType("application/json")
+      .headers(Map(
+        "User-Agent" -> "Bot/RaidCalendar",
+        "Origin" -> "https://raidres.fly.dev",
+        "Cookie" -> cookies,
+      ))
+      .body(jsonString)
+    
+    val response = request.send(backend)
+    response.body.fold(
+      errorJson => {
+        logger.debug("lockSR error: " + errorJson)
+        false
+      },
+      json => {
+        true
       }
     )
   }
@@ -573,8 +690,8 @@ object BotCommandHandler extends GamePackets with StrictLogging {
       error_json => {
         logger.debug(s"failed: $error_json")
         val jsonNode = mapper.readTree(error_json)
-        val error = jsonNode.path("error").asText("")
-        logger.debug("delete sr error")
+        var error = jsonNode.path("error").asText("")
+        if (response.code == StatusCode.TooManyRequests) error = "Rate limited by server when deleting SR"
         s"""{success=false, id=$id, player="$player", status="$error"}"""
       },
       json => {
@@ -734,7 +851,13 @@ object BotCommandHandler extends GamePackets with StrictLogging {
         case (k, v: List[_]) if v.forall(_.isInstanceOf[JsonNode]) =>
           val nodes = v.asInstanceOf[List[JsonNode]]
           s"""$k={${nodes.map(JsonToLuaConverter.jsonToLuaTable).mkString(",")}}"""
-        case (k, v: JsonNode) => s"""$k=${JsonToLuaConverter.jsonToLuaTable(v)}"""
+        case (k, v: JsonNode) =>
+          s"""$k=${JsonToLuaConverter.jsonToLuaTable(v)}"""
+        case (k, v: Boolean) =>
+          s"$k=$v"
+        case (k, v: Seq[_]) if v.forall(_.isInstanceOf[String]) =>
+          val elems = v.asInstanceOf[Seq[String]].map(s => s""""$s"""").mkString(",")
+          s"$k={$elems}"
         case (k, v) => s"""$k="$v""""
       }.toSeq
       val allFields = Seq(

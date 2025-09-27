@@ -2,7 +2,8 @@ package raidcalbot.discord
 
 import raidcalbot.common._
 import raidcalbot.game.GamePackets
-import raidcalbot.bot.BotCommandHandler.getEvent
+import raidcalbot.bot.EditEventData
+import raidcalbot.bot.BotCommandHandler.{getEvent, updateEvent}
 
 import com.typesafe.scalalogging.StrictLogging
 import com.vdurmont.emoji.EmojiParser
@@ -216,9 +217,15 @@ class Discord(discordConnectionCallback: CommonConnectionCallback) extends Liste
               val raidId = event.get("id").asText()
               val title = event.get("title").asText()
               val start = event.get("startTime").asLong()
-          
-              Global.game.foreach(_.sendNotification(s"New raid $title on ${Instant.ofEpochSecond(start)}. Check |cffffffff|Hraidcal:event:$raidId|h[RaidCalendar]|h|r or Discord for details and sign up!"))    
-              logger.info(s"Sending raid notification for $title ($raidId) to game from Discord.")
+              var desc = event.get("description").asText()
+
+              desc = modifyDescription(desc)
+              updateEvent(raidId, EditEventData(description = Some(desc)))
+
+              if (Global.config.raid.announceNewRaids) {
+                Global.game.foreach(_.sendNotification(s"New raid $title on ${Instant.ofEpochSecond(start)}. Check |cffffffff|Hraidcal:event:$raidId|h[RaidCalendar]|h|r or Discord for details and sign up!"))    
+                logger.info(s"Sending raid notification for $title ($raidId) to game from Discord.")
+              }
             }
           }
         }
@@ -248,6 +255,44 @@ class Discord(discordConnectionCallback: CommonConnectionCallback) extends Liste
           delaySeconds.toLong,
           TimeUnit.SECONDS
         )
+      }
+
+      def modifyDescription( description: String): String = {
+        val raidMap: Map[String, Int] = Map(
+          "BWL" -> 94,
+          "CC" -> 110,
+          "ES" -> 115,
+          "KARA" -> 101,
+          "MC" -> 95,
+          "NAX" -> 96,
+          "ONY" -> 97,
+          "AQ20" -> 98,
+          "AQ40" -> 99,
+          "TK" -> 109,
+          "UBRS" -> 106,
+          "ZG" -> 100
+        )
+        val raidPattern = ("^.*-(" + raidMap.keys.mkString("|") + ").*").r
+        val admin = if (Global.config.raid.account.nonEmpty) " -ADM " +  Global.config.raid.account else""
+        var lastRaidIdStr: Option[String] = None
+
+        val lines = description.split("\n", -1).map { line =>
+          raidPattern.findFirstMatchIn(line) match {
+            case Some(m) =>
+              val raidIdStr = m.group(1)
+              lastRaidIdStr = Some(raidIdStr)
+              line + admin
+            case None =>
+              lastRaidIdStr match {
+                case Some(raidId) if line.contains("-SR+") =>
+                  line.replaceAllLiterally("-SR+", s"https://wow.cook.as/fox/?raid=${raidMap(raidId)}")
+                case _ =>
+                  line
+              }
+            }
+          }
+
+          lines.mkString("\n")
       }
 
       val richEmbeds = message.getEmbeds.asScala.filter(_.getType == EmbedType.RICH)
